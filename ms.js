@@ -167,15 +167,15 @@ function toMultiStepForm(form, options) {
       // report validity of the current step & its children
       let rv = true;
 
-      function callExtraValidator(_element) {
-        if (_element == undefined || typeof _element.getAttribute == 'undefined') {
+      function callExtraValidator(_element, validators) {
+        if (_element == undefined || typeof _element.getAttribute == 'undefined' || validators == undefined) {
           return true;
         }
         let id = _element.getAttribute("id");
         if (id == undefined) {
           return true;
         }
-        let validator = this.options.extraValidators.get(id);
+        let validator = validators[id];
         if (validator == undefined) {
           return true;
         }
@@ -184,10 +184,10 @@ function toMultiStepForm(form, options) {
 
       for (var i = 0; i < ele.childNodes.length; i++) {
         let child = ele.childNodes[i];
-        rv = rv && this.reportValidity(child) && callExtraValidator(child);
+        rv = rv && this.reportValidity(child) && callExtraValidator(child, this.options.extraValidators);
       }
       if (ele.reportValidity != undefined) {
-        rv = rv && ele.reportValidity() && callExtraValidator(ele);
+        rv = rv && ele.reportValidity() && callExtraValidator(ele, this.options.extraValidators);
       }
       return rv;
     }
@@ -238,7 +238,6 @@ function toMultiStepForm(form, options) {
 
   return new MultiStepForm(form, options);
 }
-
 
 
 
