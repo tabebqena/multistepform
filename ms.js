@@ -1,140 +1,85 @@
 /*
 To use this multi step form
-- create html form element, You can set its id attribute if there is multiple forms in the page.
-- divide your form into steps, each one is a HTMLElement with `form-step` class.
-- Avoid creating "submit btn" >> better ..
-- If you create submit button, the script will alter its onclick & onsubmit listeners.
-- Optional:. create element to host the button , by class 'btn-bar', Or the script will create it for you.
-- Optional:. create next-btn inside the btn-bar with class 'next-btn', or leave it.
-- Optional:. create prev-btn inside the  btn-bar  with class 'prev-btn', or leave it.
-- You can only create the button bar & the script will create the buttons for you.
-- Optional:. create element to host the indicators,  by class 'step-bar'
-- Optional:. You can create step-indicator elments inside the 'step-bar' or leave it blank, the script will create them for you.    
-- You can only create the step-bar & the script will fill it for you.
-- Attach your style for the following: 
-*/
-function createMultiStepForm(form, options) {
+- divide your form into steps, each one is a HTMLElement with `form-step` 
+  class (You can customize this by `options.formStepClass`).
+- Avoid creating "submit btn" inside the form.
+- If you create submit button. give one of the valid alterSubmitBtn strategies. Valid values include [null, 'next', 'hide']
+  Default is `next`, This means that, The submit button `onclick` & `onsubmit` events will work as `showNext()`
+- Use the external API:
+  let msf = toMultiStepForm(form);
+  msf.showFirst();
+  msf.showNext();
+  msf.showPrev();
+  msf.moveTo();
+  
+- Listen to events:
+  options.onStepShown() // receives msf as first argument & step index as second argument.
+  options.onStepHide() // receives msf as first argument & step index as second argument.
+
+- Customize how your form steps are defined:
+  By default, each form step should have `form-step` class, You can provide your 
+  custom class by `options.formStepClass`
+
+- Customize the element show & hide methods:
+  options.hideFun() // recrives msf as first argument & the element to hide as second one.
+  options.showFun() // receives msf as first argument & the element to show as second one.
+  By default, We toggle the element.style.display attribute, 'none' || 'block'
+
+- Customize the way to store & get the current step :
+  options.getCurrentStep() // receives msf as first argument.
+  options.storeCurrentStep() // receives msf as first argument and the current step index as second one.
+  This functions are useful if you want to store step index somewhere like: session, query strings etc.
+
+- Customize the form submit:
+  - toggle submit form on the last step:
+    options.submitOnEnd  // default is true which means that the msf will submit the form after the last step.
+    options.submitFun()  // The function to be executed as the form submission function. It recieves the msf as first 
+                         // argument & you can acccess the form element by `msf.form`.
+                         // By default, We use `form.submit()`
+                         // But you can change this if you need. For example:. show message before or submit by `ajax`.
+  
+- Provide extra form validators:
+  - `options.extravalidators` : this object map form field id to a single function that should validate it.
+                                the function will recieve the HTMLElement as single argument & should return `true`
+                                if validation success or `false` if failed.
+  */
+function toMultiStepForm(form, options) {
   const DEFAULT = {
-    // stepBar options
-    createStepBar: true,
-    stepBarElement: null,
-    stepBarParentElement: null,
-    stepBarTag: "div",
-    stepBarClasses: ["step-bar"],
-    stepBarAttrs: {},
-    stepIndicatorTag: "div",
-    stepIndicatorClasses: ["step-indicator"],
-    stepIndicatorExtraClasses: [],
-
-    //
-    createBtnBar: true,
-    btnBarElement: null,
-    btnBarAttrs: {},
-    btnBarClasses: ["btn-bar"],
+    formStepClass: "form-step",
     // 
-    getCurrentStep: getCurrentStep,
-    storeCurrentStep: storeCurrentStep,
-    onPrevClick: null,
-    onNextClick: null,
-    onFirstStep: onFirstStep,
-    onLastStep: onLastStep,
-    onStep: onStep,
-    beforeSubmit: null
-  }
-
-  // 
-  function getFirstElementByClassName(className, parent = document,) {
-    let elements = parent.getElementsByClassName(className)
-    if (elements != undefined) {
-      return elements[0]
-    }
-  }  // Default callbacks
-  function onFirstStep(form) {
-    let prevBtn = getFirstElementByClassName("prev-btn", form);
-    let nextBtn = getFirstElementByClassName("next-btn", form);
-    if (prevBtn) {
-      prevBtn.style.display = "none";
-    }
-    if (nextBtn) {
-      nextBtn.style.display = "inline";
-    }
-  }
-
-  function onLastStep(form) {
-    let prevBtn = getFirstElementByClassName("prev-btn", form);
-    let nextBtn = getFirstElementByClassName("next-btn", form)
-    if (prevBtn) {
-      prevBtn.style.display = "inline";
-    }
-    if (nextBtn) {
-      nextBtn.innerHTML = "Submit";
-    }
-  }
-  function onStep(form, n) {
-    let prevBtn = getFirstElementByClassName("prev-btn", form);
-    let nextBtn = getFirstElementByClassName("next-btn", form)
-    if (prevBtn) {
-      prevBtn.style.display = "inline";
-    }
-    if (nextBtn) {
-      nextBtn.innerHTML = "Next";
-    }
+    getCurrentStep: null,
+    storeCurrentStep: null,
+    onStepShown: null,
+    onStepHide: null,
+    hideFun: null,
+    showFun: null,
+    submitFun: null,
+    alterSubmitBtn: 'next', // [ 'next', 'null'. null, 'hide']
+    submitOnEnd: true,
+    extraValidators: {}
   }
 
 
+  function defaultHideFun(context, element) {
+    element.style.display = 'none';
+  }
 
-  // helper functions //
-  function getCurrentStep() {
-    // let params = new URLSearchParams(document.URL.search);
-    const url = new URL(window.document.URL);
-    let formId = form.getAttribute("id");
-    if (formId != undefined) {
-      // try by form-id-step
-      currentStep = url.searchParams.get(formId + "-step")
-    }
-    // try by step
-    if (currentStep == undefined) {
-      currentStep = url.searchParams.get("step")
-    }
-    // use default 0
-    if (currentStep == undefined) {
-      currentStep = 0;
-    }
-    // store it in the url
-    return parseInt(currentStep);
+  function defaultShowFun(context, element) {
+    element.style.display = 'block';
+  }
+
+  function defaultGetCurrentStep(context) {
+    return context.currentStep;
+  }
+
+  function defaultStoreCurrentStep(context, step) {
+    context.currentStep = step;
   }
 
 
-
-  function createElement(tag, attributes, classes) {
-    let ele = document.createElement(tag);
-    if (attributes != undefined) {
-      for (key in attributes) {
-        ele.setAttribute(key, attributes[key]);
-      }
-    }
-    if (classes != undefined) {
-      for (let index = 0; index < classes.length; index++) {
-        ele.classList.add(classes[index]);
-      }
-    }
-    return ele;
-  }
-
-
-  function storeCurrentStep(step) {
-    let formId = form.getAttribute("id");
-    // let params = new URLSearchParams(document.URL.search)
-
-    const url = new URL(window.document.URL);
-    console.log(url, url.searchParams.toString());
-
-    if (formId != undefined) {
-      url.searchParams.set(formId + "-step", step);
-    } else {
-      url.searchParams.set("step", step);
-    }
-    window.history.replaceState({}, "", url.toString());
+  function defaultSubmit(context) {
+    context.form.submit();
+    return false;
   }
 
   function call(fn, ...args) { // ... is ES6
@@ -143,38 +88,10 @@ function createMultiStepForm(form, options) {
     }
   }
 
-  // //
-  function fillStepBar(stepBarElement, tag, klasses, length) {
-    for (let index = 0; index < length; index++) {
-      stepBarElement.appendChild(createElement(tag, {}, klasses));
+  function alterSubmitBtn(form, strategy, callback) {
+    if (strategy === null || strategy === 'null') {
+      return;
     }
-
-  }
-
-
-  function createStepBar(parent, tag, attrs, klasses, indicatorTag, indicatorKlasses, length) {
-    let stepBarElement = parent.appendChild(createElement(tag, attrs || {}, klasses));
-    // Add steps to stepBar
-    // for (let index = 0; index < length; index++) {
-    //   let s = stepBar.appendChild(createElement("div", {}, ["step-indicator"]));
-    // }
-    fillStepBar(stepBarElement, indicatorTag, indicatorKlasses, length);
-    return stepBarElement;
-  }
-
-
-  function createBtn(parent, klass, text, onClick) {
-    let btn = getFirstElementByClassName(klass, parent);
-    if (btn == undefined) {
-      btn = parent.appendChild(createElement("button", {}, [klass]));
-      btn.innerText = text
-    } else {
-      throw Error("Can't create button, There is a `HTMLElement` with this class `" + klass + "` Set corresponding options to false or remove " + klass + "from this element.", btn);
-    }
-    btn.addEventListener("click", (event) => { onClick(event) });
-  }
-
-  function disableSubmitBtn(form, callback) {
     let inputElements = form.getElementsByTagName("input");
     let buttonElements = form.getElementsByTagName("button");
     let submitBtn = undefined
@@ -192,217 +109,130 @@ function createMultiStepForm(form, options) {
         }
       }
     }
-    if (submitBtn != undefined) {
-      submitBtn.addEventListener("click", callback);
-      submitBtn.addEventListener("submit", callback);
+    if (strategy == 'next') {
+      if (submitBtn != undefined) {
+        submitBtn.addEventListener("click", callback);
+        submitBtn.addEventListener("submit", callback);
+      }
+    } else if (strategy == 'hide') {
+      submitBtn.style.display = 'none';
     }
   }
-
-
-
-
-  // 
 
   class MultiStepForm {
     constructor(form, options) {
       this.form = form;
-      this.formSteps = this.form.getElementsByClassName("form-step");
-      // Will be set in initial()
-      this.stepLength = this.formSteps.length;
-      options = options || {}
-      this.options = Object.assign(DEFAULT, options);
-      this.getCurrentStep = this.options.getCurrentStep || getCurrentStep
-      this.storeCurrentStep = this.options.storeCurrentStep || storeCurrentStep;
-      this.stepBarElement = this.options.stepBarElement;
+      this.options = this.fixOptions(options);
+      this.formSteps = this.form.getElementsByClassName(this.options.formStepClass);
+      this.options.stepLength = this.formSteps.length;
+
+      if (this.formSteps.length === 0) {
+        throw Error("Your form has no step defined by class: " + this.options.formStepClass);
+      }
+      this.currentStep = 0;
       this.initial();
-      call(this.options["on-form-ready"], form);
       this.showFirst();
     }
 
+    fixOptions(options) {
+      options = options || {}
+      this.options = Object.assign(DEFAULT, options);
+      this.options.getCurrentStep = this.options.getCurrentStep || defaultGetCurrentStep
+      this.options.storeCurrentStep = this.options.storeCurrentStep || defaultStoreCurrentStep;
+      this.options.submitFun = this.options.submitFun || defaultSubmit;
+      this.options.showFun = this.options.showFun || defaultShowFun;
+      this.options.hideFun = this.options.hideFun || defaultHideFun;
+      return this.options;
+    }
+
+
     initial() {
       let self = this;
-
       // Hide all
       for (var x = 0; x < this.formSteps.length; x++) {
         this.formSteps[x].style.display = "none";
       }
-      // create stepBar
-      if (this.options.createStepBar) {
-        if (typeof (this.options.stepBarClasses == 'string')) {
-          this.options.stepBarClasses = [this.options.stepBarClasses]
-        }
 
-        if (typeof (this.options.stepIndicatorClasses) == 'string') {
-          this.options.stepIndicatorClasses = [this.stepIndicatorClasses]
-        }
-
-        if (this.options.stepBarElement) {
-          // Try to fill the stepbar by stepIndicators
-          if (this.options.stepBarElement.childNodes.length < this.stepLength) {
-            fillStepBar(
-              this.options.stepBarElement,
-              this.options.stepIndicatorTag,
-              this.options.stepIndicatorClasses,
-              this.stepLength);
-          }
-
-
-        } else {
-          // Check for duplicates, Don;t create new one if there is
-          let _stepBar = getFirstElementByClassName(this.options.stepBarClasses[0], form);
-          if (_stepBar != undefined) {
-            throw Error("Malconfigured: `options.createStepBar` is true, `options.stepBarElement` is undefined & the form contains `HTMLElement` that has `step-bar` class. We can't create stepBar.", stepBar);
-          }
-          this.stepBarElement = createStepBar(
-            this.options.stepBarParentElement || this.form,
-            this.options.stepBarTag,
-            this.options.stepBarAttrs,
-            this.options.stepBarClasses,
-            this.options.stepIndicatorTag,
-            this.options.stepIndicatorClasses,
-            this.stepLength,
-          );
-        }
-      }
-
-      // add buttonBar
-      if (this.options.createBtnBar) {
-        if (typeof (this.options.btnBarClasses) == 'string') {
-          this.options.btnBarClasses = [this.options.btnBarClasses]
-        }
-        let btnBar = getFirstElementByClassName(this.options.btnBarClasses[0], form);
-        if (btnBar != undefined) {
-          throw Error("Can't create btnBar, There is a `HTMLElement` with class: " + this.options.btnBarClasses[0]);
-        }
-        btnBar = form.appendChild(createElement("div", {}, this.options.btnBarClasses));
-        //
-        createBtn(btnBar, "prev-btn", "Previous", (event) => {
-          event.preventDefault();
-          self.showPrev();
-          call(this.options.onPrevClick);
-        });
-        createBtn(btnBar, "next-btn", "Next", (event) => {
-          event.preventDefault();
-          self.showNext();
-          call(this.options.onNextClick);
-        });
-      }
-      // 
-
-      // if there is submit button, proxy it to next
-      disableSubmitBtn(this.form, (event) => {
-        console.log("submit clicked")
+      alterSubmitBtn(this.form, this.options.alterSubmitBtn, (event) => {
         event.preventDefault();
         self.showNext();
       });
     }
 
-    moveTo(targetStep) {
-      // This function will figure out which form-step to display
-      // 
-      if (targetStep < 0) {
-        return false;
-      }
-      let currentStep = this.getCurrentStep();
-      console.log("currentStep: ", currentStep);
-      // Exit the function if any field in the current form-step is invalid:
-      // and wants to go next
-      if (targetStep > currentStep && !this.reportValidity(this.formSteps[currentStep])) return false;
-      // if you have reached the end of the form...
-      if (targetStep >= this.stepLength) {
-        // ... the form gets submitted:
-        if (this.options.beforeSubmit) {
-          let rv = call(this.optionsbeforeSubmit, form);
-          if (rv) {
-            form.submit();
-            return false;
-          }
-          return;
-        }
-        form.submit();
-        return false;
-      }
-      // Otherwise, display the correct form-step:
-      this.showStep(targetStep);
+    submit() {
+      return this.options.submitFun(this);
     }
 
     reportValidity(ele) {
-      // report validity of the current step & its child
+      // report validity of the current step & its children
       let rv = true;
-      for (var i = 0; i < ele.childNodes.length; i++) {
-        rv = rv && this.reportValidity(ele.childNodes[i]);
+
+      function callExtraValidator(_element) {
+        if (_element == undefined || typeof _element.getAttribute == 'undefined') {
+          return true;
+        }
+        let id = _element.getAttribute("id");
+        if (id == undefined) {
+          return true;
+        }
+        let validator = this.options.extraValidators.get(id);
+        if (validator == undefined) {
+          return true;
+        }
+        return validator(_element);
       }
-      console.log(ele, ele.reportValidity);
+
+      for (var i = 0; i < ele.childNodes.length; i++) {
+        let child = ele.childNodes[i];
+        rv = rv && this.reportValidity(child) && callExtraValidator(child);
+      }
       if (ele.reportValidity != undefined) {
-        rv = rv && ele.reportValidity();
+        rv = rv && ele.reportValidity() && callExtraValidator(ele);
       }
       return rv;
     }
 
-
-    showStep(targetStep) {
-      // This function will display the specified form-step of the form...
-      // Hide others
-      // Call callbacks
-      console.log("show step", targetStep)
-      for (let index = 0; index < this.formSteps.length; index++) {
-        this.formSteps[index].style.display = "none";
+    moveTo(targetStep) {
+      // This function will figure out which form-step to display
+      if (targetStep < 0) {
+        return false;
       }
-      this.formSteps[targetStep].style.display = "block";
-      if (targetStep == 0) {
-        call(this.options.onFirstStep, form);
-      } else if (targetStep == (this.stepLength - 1)) {
-        call(this.options.onLastStep, form);
-      } else {
-        call(this.options.onStep, form, targetStep);
+      let currentStep = this.getCurrentStep();
+      // Exit the function if any field in the current form-step is invalid:
+      // and wants to go next
+      if (targetStep > currentStep && !this.reportValidity(this.formSteps[currentStep])) return false;
+      // if you have reached the end of the form...
+      if (targetStep >= this.options.stepLength && this.options.submitOnEnd) {
+        return this.submit();
       }
+      if (currentStep !== undefined && currentStep !== null) {
+        this.options.hideFun(this, this.formSteps[currentStep]);
+        call(this.options.onStepHide, this, currentStep);
+      }
+      // Show current 
+      this.options.showFun(this, this.formSteps[targetStep]);
+      call(this.options.onStepShown, this, targetStep);
       //... and run a function that will display the correct step indicator:
-      this.fixStepIndicator(targetStep);
-      this.storeCurrentStep(targetStep);
+
+      this.options.storeCurrentStep(this, targetStep);
     }
 
-    fixStepIndicator(currentStep) {
-      // This function removes the "active" class of all steps...
-
-      var i, indicators = this.stepBarElement.getElementsByClassName("step-indicator");
-      for (i = 0; i < indicators.length; i++) {
-        indicators[i].classList.remove("active");
-      }
-      if (currentStep > 0) {
-        if (indicators[currentStep - 1]) {
-          indicators[currentStep - 1].classList.add("finish");
-        }
-        for (i = currentStep; i < indicators.length; i++) {
-          indicators[i].classList.remove("finish");
-        }
-      }
-      //... and adds the "active" class on the current step:
-      if (indicators[currentStep]) {
-        indicators[currentStep].classList.add("active");
-      }
-    }
-
-    showNext(event) {
-      if (event) {
-        event.preventDefault();
-      }
+    showNext() {
       let current = this.getCurrentStep();
       this.moveTo(current + 1)
     }
 
-    showFirst(event) {
-      if (event) {
-        event.preventDefault();
-      }
+    showFirst() {
       this.moveTo(0);
     }
 
-    showPrev(event) {
-      if (event) {
-        event.preventDefault();
-      }
+    showPrev() {
       let current = this.getCurrentStep();
       this.moveTo(current - 1);
+    }
+
+    getCurrentStep(context) {
+      return this.options.getCurrentStep(context || this);
     }
   }
 

@@ -47,9 +47,11 @@
       opacity: 0.8;
     }
 
-    .prev-btn {
+    < !-- .prev-btn {
       background-color: #bbbbbb;
     }
+
+    -->
 
     /* Make circles that indicate the steps of the form: */
     .step-indicator {
@@ -81,11 +83,11 @@
         <h1>Register:</h1>
         <!-- One "form-step" for each step in the form: -->
         <div class="form-step">Name:
-          <p><input placeholder="First name..." required min="5" name="fname"></p>
-          <p><input placeholder="Last name..." required min="5" name="lname"></p>
+          <p><input placeholder="First name..." min="5" name="fname"></p>
+          <p><input placeholder="Last name..." min="5" name="lname"></p>
         </div>
         <div class="form-step">Contact Info:
-          <p><input placeholder="E-mail..." required type="email" name="femail">
+          <p><input placeholder="E-mail..." name="femail">
           </p>
           <p><input placeholder="Phone..." oninput="this.className = ''" name="phone"></p>
         </div>
@@ -98,29 +100,68 @@
           <p><input placeholder="Username..." oninput="this.className = ''" name="uname"></p>
           <p><input placeholder="Password..." oninput="this.className = ''" name="pword" type="password"></p>
         </div>
-        <button type="submit" class="">Submit</button>
-        <!-- <div class="btn-bar" style="overflow:auto;"> -->
-        <!-- <div style="float:right;">
-          <button type="button" class="prev-btn">Previous</button>
-          <button type="button" class="next-btn">Next</button>
-        </div> -->
-        <!-- </div> -->
-        <!-- Circles which indicates the steps of the form: -->
-        <!-- <div class="step-bar" style="text-align:center;margin-top:40px;">
-      </div> -->
       </div>
 
     </form>
-    <script src="./ms.js"></script>
+    <!-- <button type="submit" class="">Submit</button> -->
+    <div class="btn-bar" style="overflow:auto;">
+      <div style="float:right;">
+        <button id="prev-btn" type="button" class="prev-btn">Previous</button>
+        <button id="next-btn" type="button" class="next-btn">Next</button>
+      </div>
+    </div>
+    <!-- Circles which indicates the steps of the form: -->
+    <div class="step-bar" style="text-align:center;margin-top:40px;">
+      <div class="step-indicator"></div>
+      <div class="step-indicator"></div>
+      <div class="step-indicator"></div>
+      <div class="step-indicator"></div>
+    </div>
+    <script src="../ms.js"></script>
     <script>
+
+
       document.addEventListener("DOMContentLoaded", () => {
         let forms = document.getElementsByTagName("form")
+        let nextBtn = document.getElementById("next-btn");
+        let prevBtn = document.getElementById("prev-btn");
+
+
+
         for (var x = 0; x < forms.length; x++) {
           let form = forms[x]
-          // if (form.classList.contains("multi-step")) {
-          //   multiStepForm(form)
-          // }
-          window.multi = createMultiStepForm(form)
+
+          let onStepShown = (msf, currentStep) => {
+
+            var i, indicators = document.getElementsByClassName("step-indicator");
+            for (i = 0; i < indicators.length; i++) {
+              indicators[i].classList.remove("active");
+            }
+            if (currentStep > 0) {
+              if (indicators[currentStep - 1]) {
+                indicators[currentStep - 1].classList.add("finish");
+              }
+              for (i = currentStep; i < indicators.length; i++) {
+                indicators[i].classList.remove("finish");
+              }
+            }
+            //... and adds the "active" class on the current step:
+            if (indicators[currentStep]) {
+              indicators[currentStep].classList.add("active");
+            }
+
+
+          }
+
+          window.multi = toMultiStepForm(form, { onStepShown: onStepShown });
+          nextBtn.onclick = () => {
+            window.multi.showNext();
+          }
+          prevBtn.onclick = () => {
+            console.log("orev")
+            window.multi.showPrev();
+          }
+
         }
       });
 
